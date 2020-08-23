@@ -5,6 +5,11 @@ const json = require('koa-json')
 const onerror = require('koa-onerror')
 const bodyparser = require('koa-bodyparser')
 const logger = require('koa-logger')
+const morgan = require('koa-morgan')
+const session = require('koa-generic-session')
+const  redisStore = require('koa-redis')
+const path = require('path')
+const fs = require('fs')
 
 const index = require('./routes/index')
 const users = require('./routes/users')
@@ -33,6 +38,36 @@ app.use(async (ctx, next) => {
   const ms = new Date() - start
   console.log(`${ctx.method} ${ctx.url} - ${ms}ms`)
 })
+
+// 日志设置
+let env = process.env.NODE_ENV
+if (env === 'production') {
+  const logFileName = path.resolve(__dirname, './logs/access.log')
+  const writeStream = fs.createWriteStream(logFileName, {
+    flags: 'a'
+  })
+  app.use(morgan('combined', {
+    stream: writeStream
+  }))
+} else {
+  app.use(morgan('dev'));
+}
+
+// 配置session
+app.keys = ['aqw_32&qa_AQnQ2']
+app.use(session({
+  // 配置cookie
+  cookie: {
+    path: '/',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000
+  },
+  // 配置redis
+  store: redisStore({
+    all: '127.0.0.1:6379' // 暂时写死
+  })
+}))
+
 
 // routes
 app.use(index.routes(), index.allowedMethods())
